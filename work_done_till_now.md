@@ -2,7 +2,8 @@
 
 > **Course**: CSE3712 — Big Data Analytics (Semester 6)  
 > **Project Title**: Advanced Real Estate Valuation & Predictive Modeling at Enterprise Scale  
-> **Last Updated**: 2026-10-27  
+> **GitHub Repository**: [ShubhamPate-L/BigData-Real-Estate-Valuation](https://github.com/ShubhamPate-L/BigData-Real-Estate-Valuation) (Public)  
+> **Last Updated**: 2026-11-03  
 > **Dataset Status**: **100% Non-Kaggle**, Official Government Open Data (HM Land Registry + UK Open Postcodes)  
 > **Current Scale**: **1,635,628 Transactions** across England & Wales (2022–2023) — **~76x scale-up** over initial King County baseline.
 
@@ -25,8 +26,9 @@
    - 4.5 [Cyclical & Structural Feature Encodings](#45-cyclical--structural-feature-encodings)
    - 4.6 [Target Normalization & 51-Feature Matrix Export](#46-target-normalization--51-feature-matrix-export)
 5. [Verification & Demonstration Artifacts](#5-verification--demonstration-artifacts)
-6. [Complete Repository Structure](#6-complete-repository-structure)
-7. [Roadmap & Pending Phases](#7-roadmap--pending-phases)
+6. [Git Version Control & Remote Repository Architecture](#6-git-version-control--remote-repository-architecture)
+7. [Complete Repository Structure](#7-complete-repository-structure)
+8. [Roadmap & Pending Phases](#8-roadmap--pending-phases)
 
 ---
 
@@ -212,7 +214,29 @@ To enable immediate inspection and interactive reproduction for coursework asses
 
 ---
 
-## 6. Complete Repository Structure
+## 6. Git Version Control & Remote Repository Architecture
+
+A public GitHub repository has been created and synced:
+- **Repository URL**: [https://github.com/ShubhamPate-L/BigData-Real-Estate-Valuation](https://github.com/ShubhamPate-L/BigData-Real-Estate-Valuation)
+- **Visibility**: Public
+- **Initial Commit Hash**: `a228e40ca0df357fa2e248a2875f1f3d4db4f608`
+- **Default Branch**: `main`
+
+### 6.1 Version Control & Large File Management Strategy
+In enterprise big data engineering, committing raw multi-hundred-megabyte binary files directly to Git history causes repository bloat and violates GitHub's 100 MB hard limit. To adhere to industry best practices:
+1. **Reproducible Pipeline via Code**:
+   - `scripts/01_ingest_data.py` independently pulls raw source files (`pp-2022.csv`, `pp-2023.csv`, `ukpostcodes.csv`) directly from government servers.
+   - `scripts/02_clean_and_to_parquet.py` re-generates the geocoded Parquet tables from scratch.
+2. **Strict `.gitignore` Policy**:
+   - Ignores `data/raw/*`, `data/properties/*`, and `data/features/*` (preserving directory paths via `.gitkeep`).
+   - Ignores embedded database files (`*.duckdb`, `*.duckdb.wal`).
+   - Ignores Python bytecode (`__pycache__`) and Jupyter checkpoints (`.ipynb_checkpoints`).
+3. **Tracked Production Assets**:
+   - All source scripts, transformation code, verification notebooks (`main_file.ipynb`), comprehensive documentation (`work_done_till_now.md`), academic report documents, and project presentations.
+
+---
+
+## 7. Complete Repository Structure
 
 ```
 c:\Sem 6\BDA\

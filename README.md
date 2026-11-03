@@ -1,6 +1,12 @@
 # 🏠 Advanced Real Estate Valuation & Predictive Modeling at Enterprise Scale
 
+[![GitHub Repository](https://img.shields.io/badge/GitHub-BigData--Real--Estate--Valuation-blue?logo=github)](https://github.com/ShubhamPate-L/BigData-Real-Estate-Valuation)
+[![Dataset](https://img.shields.io/badge/Dataset-HM%20Land%20Registry-brightgreen)](https://www.gov.uk/government/statistical-data-sets/price-paid-data-downloads)
+[![Scale](https://img.shields.io/badge/Records-1.63M%20Transactions-orange)](https://github.com/ShubhamPate-L/BigData-Real-Estate-Valuation)
+[![License](https://img.shields.io/badge/License-OGL%20v3.0-blue)](https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/)
+
 > **Course**: CSE3712 — Big Data Analytics (Semester 6)  
+> **Repository**: [https://github.com/ShubhamPate-L/BigData-Real-Estate-Valuation](https://github.com/ShubhamPate-L/BigData-Real-Estate-Valuation)  
 > **Target**: Predict residential property prices using large-scale tabular, geospatial, and macroeconomic indicators.  
 > **Dataset**: **1,635,628 Transactions** across England & Wales (2022–2023) from **HM Land Registry** (Official UK Government Open Data, **100% Non-Kaggle**).
 
