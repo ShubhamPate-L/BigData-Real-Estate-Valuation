@@ -1,0 +1,42 @@
+# ==========================================
+# Big Data Real Estate Analytics .gitignore
+# ==========================================
+
+# Large Raw & Processed Datasets (Auto-generated via scripts/01 & 02)
+data/raw/*
+!data/raw/.gitkeep
+data/properties/*
+!data/properties/.gitkeep
+data/features/*
+!data/features/.gitkeep
+
+# Embedded Database Files
+*.duckdb
+*.duckdb.wal
+*.db
+*.sqlite3
+
+# Python bytecode & caching
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+
+# OS Artifacts
+.DS_Store
+Thumbs.db
+__MACOSX/
+*.tmp
+
+# VS Code & IDE settings
+.vscode/
+.idea/

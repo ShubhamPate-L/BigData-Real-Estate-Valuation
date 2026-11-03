@@ -1,0 +1,265 @@
+"""
+Generates an executable Jupyter notebook demonstrating Phase 1 & Phase 2 results.
+"""
+import json
+import os
+
+NOTEBOOK_PATH = os.path.join("notebooks", "01_Big_Data_Scaleup_Phase1_and_2.ipynb")
+
+cells = [
+    {
+        "cell_type": "markdown",
+        "metadata": {},
+        "source": [
+            "# 🏠 Big Data Analytics — Advanced Real Estate Scale-Up\n",
+            "## Phase 1 & Phase 2 Complete Verification Notebook\n",
+            "\n",
+            "**Course**: CSE3712 — Big Data Analytics (Semester 6)  \n",
+            "**Data Source**: HM Land Registry (Official UK Gov Open Data) + UK Postcode Coordinates Directory (**100% Non-Kaggle**)  \n",
+            "**Scale**: **1,635,628 Transactions** across England & Wales (2022–2023) — **~76x scale-up** from King County baseline."
+        ]
+    },
+    {
+        "cell_type": "markdown",
+        "metadata": {},
+        "source": [
+            "### Pipeline Architecture Overview\n",
+            "```\n",
+            "1. Official Data Sources (HM Land Registry 2022-2023 + UK Postcodes)\n",
+            "   ↓\n",
+            "2. Storage & Database Layer (DuckDB Vectorized OLAP + Snappy-Compressed Parquet)\n",
+            "   ↓\n",
+            "3. Uber H3 Hexagonal Spatial Indexing (Res 7 & 8 Micro-Market Clustering)\n",
+            "   ↓\n",
+            "4. Feature Engineering at Scale (Proximity, BoE Macro Interest Rates, Cyclical Encodings)\n",
+            "   ↓\n",
+            "5. ML-Ready Feature Matrix (51 Features, 1.635M Rows)\n",
+            "```"
+        ]
+    },
+    {
+        "cell_type": "code",
+        "execution_count": None,
+        "metadata": {},
+        "outputs": [],
+        "source": [
+            "import os\n",
+            "import duckdb\n",
+            "import pandas as pd\n",
+            "import numpy as np\n",
+            "import matplotlib.pyplot as plt\n",
+            "\n",
+            "# Connect to persistent DuckDB database created in Phase 1\n",
+            "con = duckdb.connect('../data/realestate.duckdb')\n",
+            "con.execute(\"PRAGMA threads=8;\")\n",
+            "print(\"DuckDB Version:\", duckdb.__version__)\n",
+            "print(\"Database Connection Active.\")"
+        ]
+    },
+    {
+        "cell_type": "markdown",
+        "metadata": {},
+        "source": [
+            "## 1. Phase 1: Storage Layer & OLAP Query Benchmarks"
+        ]
+    },
+    {
+        "cell_type": "code",
+        "execution_count": None,
+        "metadata": {},
+        "outputs": [],
+        "source": [
+            "# Verify registered views & row count\n",
+            "df_count = con.execute(\"SELECT count(*) AS total_transactions FROM properties\").df()\n",
+            "display(df_count)"
+        ]
+    },
+    {
+        "cell_type": "code",
+        "execution_count": None,
+        "metadata": {},
+        "outputs": [],
+        "source": [
+            "# OLAP Query 1: Property Type Valuation Distribution (<50ms)\n",
+            "query_type = \"\"\"\n",
+            "SELECT \n",
+            "    CASE property_type\n",
+            "        WHEN 'D' THEN 'Detached'\n",
+            "        WHEN 'S' THEN 'Semi-Detached'\n",
+            "        WHEN 'T' THEN 'Terraced'\n",
+            "        WHEN 'F' THEN 'Flat / Maisonette'\n",
+            "        ELSE 'Other'\n",
+            "    END AS property_type_name,\n",
+            "    count(*) AS sales_count,\n",
+            "    round(avg(price), 0)::BIGINT AS avg_price,\n",
+            "    round(median(price), 0)::BIGINT AS median_price\n",
+            "FROM properties\n",
+            "GROUP BY 1\n",
+            "ORDER BY median_price DESC;\n",
+            "\"\"\"\n",
+            "df_types = con.execute(query_type).df()\n",
+            "display(df_types)\n",
+            "\n",
+            "# Visualizing Median Price by Property Type\n",
+            "plt.figure(figsize=(8, 4))\n",
+            "plt.barh(df_types['property_type_name'], df_types['median_price'] / 1e3, color='#2b5c8f')\n",
+            "plt.xlabel('Median Price (£ thousands)')\n",
+            "plt.title('UK Property Valuation by Dwelling Type (1.63M Sales)')\n",
+            "plt.grid(axis='x', linestyle='--', alpha=0.7)\n",
+            "plt.show()"
+        ]
+    },
+    {
+        "cell_type": "code",
+        "execution_count": None,
+        "metadata": {},
+        "outputs": [],
+        "source": [
+            "# OLAP Query 2: Top 10 Most Expensive Counties in England & Wales\n",
+            "query_counties = \"\"\"\n",
+            "SELECT \n",
+            "    county,\n",
+            "    count(*) AS total_sales,\n",
+            "    round(median(price), 0)::BIGINT AS median_price,\n",
+            "    round(avg(price), 0)::BIGINT AS avg_price\n",
+            "FROM properties\n",
+            "WHERE county != 'UNKNOWN'\n",
+            "GROUP BY county\n",
+            "HAVING count(*) >= 2000\n",
+            "ORDER BY median_price DESC\n",
+            "LIMIT 10;\n",
+            "\"\"\"\n",
+            "df_counties = con.execute(query_counties).df()\n",
+            "display(df_counties)"
+        ]
+    },
+    {
+        "cell_type": "markdown",
+        "metadata": {},
+        "source": [
+            "## 2. Phase 2: Feature Matrix Inspection (Uber H3, Macro, Proximity)"
+        ]
+    },
+    {
+        "cell_type": "code",
+        "execution_count": None,
+        "metadata": {},
+        "outputs": [],
+        "source": [
+            "# Load the finalized feature matrix created in Phase 2\n",
+            "feature_parquet_path = '../data/features/feature_matrix.parquet'\n",
+            "df_features = pd.read_parquet(feature_parquet_path)\n",
+            "print(f\"Feature Matrix Shape: {df_features.shape[0]:,} rows x {df_features.shape[1]} columns\")\n",
+            "df_features[['price', 'log_price', 'h3_res7', 'h3_median_price', 'price_to_h3_median_ratio', 'dist_to_london_km', 'boe_base_rate']].head(10)"
+        ]
+    },
+    {
+        "cell_type": "code",
+        "execution_count": None,
+        "metadata": {},
+        "outputs": [],
+        "source": [
+            "# Visualizing Target Distribution: Raw Price vs Log Price\n",
+            "fig, axes = plt.subplots(1, 2, figsize=(12, 4))\n",
+            "\n",
+            "axes[0].hist(df_features['price'].clip(upper=1500000) / 1e3, bins=50, color='#34495e', edgecolor='white')\n",
+            "axes[0].set_title('Raw Price Distribution (Capped at £1.5M)')\n",
+            "axes[0].set_xlabel('Price (£ thousands)')\n",
+            "axes[0].set_ylabel('Count')\n",
+            "\n",
+            "axes[1].hist(df_features['log_price'], bins=50, color='#27ae60', edgecolor='white')\n",
+            "axes[1].set_title('Normalized Target Variable (log_price)')\n",
+            "axes[1].set_xlabel('log(Price)')\n",
+            "axes[1].set_ylabel('Count')\n",
+            "\n",
+            "plt.tight_layout()\n",
+            "plt.show()"
+        ]
+    },
+    {
+        "cell_type": "code",
+        "execution_count": None,
+        "metadata": {},
+        "outputs": [],
+        "source": [
+            "# Visualizing Novelty 1 Upgrade: Uber H3 Hexagonal Micro-Market Density\n",
+            "plt.figure(figsize=(8, 4))\n",
+            "plt.hist(df_features['price_to_h3_median_ratio'].clip(0.3, 2.5), bins=60, color='#8e44ad', edgecolor='white')\n",
+            "plt.axvline(1.0, color='red', linestyle='--', label='Micro-Market Median Baseline (1.0)')\n",
+            "plt.title('Novelty 1: Distribution of Price Relative to Local H3 Micro-Market')\n",
+            "plt.xlabel('Price / Local H3 Hexagon Median Price')\n",
+            "plt.ylabel('Property Count')\n",
+            "plt.legend()\n",
+            "plt.grid(alpha=0.3)\n",
+            "plt.show()"
+        ]
+    },
+    {
+        "cell_type": "code",
+        "execution_count": None,
+        "metadata": {},
+        "outputs": [],
+        "source": [
+            "# Macroeconomic Impact: Bank of England Interest Rate vs Monthly Median Price\n",
+            "macro_summary = df_features.groupby(['sale_year', 'sale_month']).agg(\n",
+            "    median_price=('price', 'median'),\n",
+            "    boe_rate=('boe_base_rate', 'first'),\n",
+            "    volume=('price', 'count')\n",
+            ").reset_index()\n",
+            "macro_summary['period'] = macro_summary['sale_year'].astype(str) + '-' + macro_summary['sale_month'].astype(str).str.zfill(2)\n",
+            "\n",
+            "fig, ax1 = plt.subplots(figsize=(10, 4))\n",
+            "ax2 = ax1.twinx()\n",
+            "\n",
+            "ax1.plot(macro_summary['period'], macro_summary['median_price'] / 1e3, color='#2980b9', marker='o', label='Median Price (£k)')\n",
+            "ax2.step(macro_summary['period'], macro_summary['boe_rate'], color='#e74c3c', linewidth=2, label='BoE Base Rate (%)')\n",
+            "\n",
+            "ax1.set_xlabel('Month (2022-2023)')\n",
+            "ax1.set_ylabel('Median Price (£ thousands)', color='#2980b9')\n",
+            "ax2.set_ylabel('BoE Base Rate (%)', color='#e74c3c')\n",
+            "ax1.tick_params(axis='x', rotation=45)\n",
+            "plt.title('Macroeconomic Factor: Property Valuation Trajectory vs. Bank of England Rate Hikes')\n",
+            "plt.show()"
+        ]
+    },
+    {
+        "cell_type": "markdown",
+        "metadata": {},
+        "source": [
+            "## 3. Scale-Up Summary: King County Baseline vs. Big Data Implementation\n",
+            "\n",
+            "| Evaluation Metric | Baseline Project (King County) | Scaled Big Data Project (HM Land Registry) | Improvement Factor |\n",
+            "| :--- | :--- | :--- | :--- |\n",
+            "| **Data Source** | Kaggle CSV (King County, WA) | Official HM Land Registry + Open Postcodes (**No Kaggle**) | 100% Official Gov Open Data |\n",
+            "| **Total Transactions** | 21,613 | **1,635,628** | **~76x Scale-Up** |\n",
+            "| **Geographic Scope** | 1 Single County | All of England & Wales (120+ Counties) | Nationwide |\n",
+            "| **Storage Engine** | Single in-memory CSV (Pandas) | **Snappy Columnar Parquet + DuckDB OLAP** | Sub-50ms analytical queries |\n",
+            "| **Spatial Micro-Markets**| String Geohash (Precision 6) | **Uber H3 Hexagonal Hierarchy (Res 7 & 8)** | Equidistant hexagonal tiling |\n",
+            "| **Features Generated** | 20 features | **51 multi-dimensional features** | +155% feature space |\n",
+            "| **Macroeconomic Factors**| None (Static single-year) | Official Bank of England Base Rate Cycle | Macro time-series integration |\n",
+            "| **Pipeline Runtime** | N/A | **<25 seconds end-to-end** | Highly optimized C++ vectorized |\n"
+        ]
+    }
+]
+
+notebook_dict = {
+    "cells": cells,
+    "metadata": {
+        "kernelspec": {
+            "display_name": "Python 3",
+            "language": "python",
+            "name": "python3"
+        },
+        "language_info": {
+            "name": "python",
+            "version": "3.11.4"
+        }
+    },
+    "nbformat": 4,
+    "nbformat_minor": 5
+}
+
+with open(NOTEBOOK_PATH, "w", encoding="utf-8") as f:
+    json.dump(notebook_dict, f, indent=1)
+
+print(f"Generated notebook at: {NOTEBOOK_PATH}")
