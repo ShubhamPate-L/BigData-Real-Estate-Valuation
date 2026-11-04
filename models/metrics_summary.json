@@ -1,0 +1,77 @@
+{
+  "dataset_split": {
+    "total_records": 1635889,
+    "train_records_2022": 907409,
+    "val_records_2023_h1": 341779,
+    "test_records_2023_h2": 386701
+  },
+  "hedonic_baseline_ridge": {
+    "r2_log_scale": 0.5816,
+    "rmse_gbp": 105576691954.01,
+    "mae_gbp": 171757412.51,
+    "mdape_pct": 23.6
+  },
+  "lightgbm_point_regressor": {
+    "r2_log_scale": 0.684,
+    "rmse_gbp": 487989.44,
+    "mae_gbp": 121458.9,
+    "mdape_pct": 19.22
+  },
+  "lightgbm_quantile_median_q50": {
+    "r2_log_scale": 0.6797,
+    "rmse_gbp": 495173.61,
+    "mae_gbp": 120628.76,
+    "mdape_pct": 18.8
+  },
+  "quantile_risk_bands": {
+    "pinball_loss_q10": 0.0655,
+    "pinball_loss_q50": 0.13678,
+    "pinball_loss_q90": 0.06472,
+    "expected_coverage_pct": 80.0,
+    "empirical_coverage_pct": 77.45,
+    "avg_interval_width_gbp": 360674.73,
+    "median_interval_width_gbp": 191582.55
+  },
+  "top_10_features_by_importance": [
+    {
+      "feature": "h3_median_price",
+      "importance_gain": 961065.3636828065
+    },
+    {
+      "feature": "h3_mean_price",
+      "importance_gain": 284313.5131020397
+    },
+    {
+      "feature": "h3_p75_price",
+      "importance_gain": 237229.29916143417
+    },
+    {
+      "feature": "property_type",
+      "importance_gain": 219778.4388449192
+    },
+    {
+      "feature": "h3_p25_price",
+      "importance_gain": 112004.3443454802
+    },
+    {
+      "feature": "tenure",
+      "importance_gain": 95500.64073860645
+    },
+    {
+      "feature": "county",
+      "importance_gain": 71112.56638626754
+    },
+    {
+      "feature": "is_freehold",
+      "importance_gain": 60984.96549630165
+    },
+    {
+      "feature": "type_detached",
+      "importance_gain": 48819.14761054516
+    },
+    {
+      "feature": "h3_freehold_ratio",
+      "importance_gain": 45703.374846443534
+    }
+  ]
+}

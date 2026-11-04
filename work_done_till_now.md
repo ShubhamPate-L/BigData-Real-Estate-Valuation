@@ -274,22 +274,130 @@ c:\Sem 6\BDA\
 
 ---
 
+
+---
+
+## 5. Phase 3: Scalable Machine Learning Pipeline & Quantile Risk Bands
+
+Executed via `scripts/05_train_models.py` across 1,635,889 records in **104.88 seconds**.
+
+### 5.1 Strict Temporal Split (No Lookahead Bias)
+- **Train Set (2022 Entire Year)**: 907,409 transactions (55.5%)
+- **Validation Set (2023 Q1 & Q2)**: 341,779 transactions (20.9%)
+- **Out-of-Time Test Set (2023 Q3 & Q4)**: 386,701 transactions (23.6%)
+
+### 5.2 Model Benchmark Evaluation (On Out-of-Time Test Set)
+| Model Architecture | R² (Log Scale) | MAE (£) | MdAPE (%) | Training Time |
+| :--- | :--- | :--- | :--- | :--- |
+| **Baseline Hedonic (Ridge)** | 0.5816 | £171,757,413 | 23.60% | 2.64s |
+| **Enterprise LightGBM Regressor** | **0.6840** | **£121,459** | **19.22%** | **32.09s** |
+| **LightGBM Quantile Median (q50)** | 0.6797 | £120,629 | 18.80% | 24.00s |
+
+### 5.3 Quantile Risk Bands (Novelty 2)
+- **Pinball Losses**:
+  - Floor α=0.10: `0.06550`
+  - Median α=0.50: `0.13678`
+  - Ceiling α=0.90: `0.06472`
+- **Uncertainty Interval Coverage**: **77.45%** (Empirical vs Expected 80.0%)
+- **Median 80% Confidence Interval Width**: **£191,583**
+
+### 5.4 Saved Production Artifacts (`models/`)
+- `hedonic_ridge.joblib`: Baseline Ridge model and standard scaler.
+- `lgbm_point_regressor.joblib`: Primary fast gradient boosting regressor (3.5 MB).
+- `lgbm_quantile_q10.joblib`: 10th percentile downside risk floor.
+- `lgbm_quantile_q50.joblib`: 50th percentile fair market value.
+- `lgbm_quantile_q90.joblib`: 90th percentile upside ceiling.
+- `metrics_summary.json`: Quantitative audit benchmark metrics.
+- `feature_importances.csv`: Feature gain & split importance rankings.
+
+
+---
+
+## 6. Phase 4: Enterprise Explainability & Arbitrage Detection Engine
+
+Executed via `scripts/06_explainability_and_arbitrage.py` in **42.33 seconds**.
+
+### 6.1 Native TreeSHAP Global Feature Attribution
+Using LightGBM's native C++ implementation of TreeSHAP (Lundberg et al., 2020), exact feature attributions were computed across a representative sample of 10,000 out-of-time test observations:
+- **Expected Global Base Value**: `12.5285` (equivalent to **£276,102** baseline fair value).
+- **Top 5 Valuation Drivers**:
+  1. `h3_median_price` (Mean |SHAP| = `0.1606`, strong positive correlation)
+  2. `property_type` (Mean |SHAP| = `0.1358`, non-linear structural premium)
+  3. `h3_mean_price` (Mean |SHAP| = `0.1045`, positive correlation)
+  4. `h3_p75_price` (Mean |SHAP| = `0.0804`, positive correlation)
+  5. `h3_p25_price` (Mean |SHAP| = `0.0696`, positive correlation)
+- Saved to: `models/shap_feature_importance.csv`.
+
+### 6.2 Anomaly-Filtered Arbitrage Engine (Novelty 3 Upgrade)
+Unlike the baseline which only filtered on raw percentage residuals, the enterprise engine incorporates:
+- **Price Range Bounds**: Excludes non-market nominal transfers (`price < £40,000`) and speculative super-luxury outliers (`price > £4,000,000`).
+- **Liquidity Floor**: `h3_sales_volume >= 15` (eliminates illiquid cells).
+- **Probabilistic Risk Floor**: `actual_price < pred_floor_q10` (strictly below the 10th percentile liquidation floor).
+- **Discount Threshold**: $\ge 20\%$ below fair market value.
+- **Arbitrage Opportunity Score (AOS)**:
+  $$AOS = \text{discount\_pct} \times \left(1 - \min\left(0.8, \frac{\text{IQR}}{\text{Median}}\right)\right) \times \log_{10}(1 + N_{\text{sales}})$$
+- **Results**:
+  - Found **45,875 verified arbitrage opportunities** (11.86% of test set).
+  - Saved full dataset to `data/features/arbitrage_opportunities.parquet`.
+  - Saved audited top 50 to `data/features/arbitrage_top50.csv`.
+
+### 6.3 Vectorized DuckDB Comparable Property (Comps) Engine
+Demonstrated live validation on the top arbitrage opportunity:
+- **Target Property**: KINGS ROAD, BIRMINGHAM (B449HN)
+  - Actual Transaction Price: **£50,000**
+  - Predicted Fair Market Value: **£240,806** (79.2% discount, AOS: 158.06)
+- **Comps in the exact same 0.1km radius**:
+  - Dunedin Road: £235,000 (0.07 km)
+  - Dunedin Road: £250,000 (0.07 km)
+  - Kings Road: £235,000 (0.10 km)
+  - Blythe Grove: £168,000 (0.09 km)
+- **Comps Query Latency**: **344.85 ms**.
+
+
+---
+
+## 7. Phase 5: Interactive Web Dashboard & Real-Time API Delivery
+
+Implemented enterprise frontend and API microservices in `app/` and root runners `run_api.py` and `run_dashboard.py`.
+
+### 7.1 FastAPI Microservice (`app/api.py` / `run_api.py`)
+- **Interactive Swagger Docs**: `http://127.0.0.1:8000/docs`
+- **Endpoints**:
+  - `GET /health`: Health check and system metadata.
+  - `POST /predict`: Real-time valuation returning point estimate, 10th percentile floor, 90th percentile ceiling, comps, and arbitrage evaluation (Latency: **~220 ms**).
+  - `GET /arbitrage/top`: Top 25 verified high-confidence undervalued deals across England & Wales.
+  - `GET /comps`: Local comparable property search within the exact same Uber H3 hexagon.
+
+### 7.2 Streamlit Web Application (`app/dashboard.py` / `run_dashboard.py`)
+- **Local Access**: `http://localhost:8501`
+- **Tab 1: Real-Time Property Valuator & Comps Engine**:
+  - Instant postcode lookup, property type selection, and asking price assessment.
+  - 4 Executive Metric Cards: Liquidation Floor (£), Fair Value (£), Upside Ceiling (£), 80% Confidence Band Width (£).
+  - Dynamic Arbitrage Badge alerting if asking price is a high-confidence undervalued gem.
+  - Interactive table of top 5 local comps in the exact same micro-market.
+- **Tab 2: National Arbitrage & Hidden Gems Explorer**:
+  - Interactive table of top 50 audited undervalued listings.
+  - County filters, minimum discount slider, and max price limits.
+- **Tab 3: Big Data OLAP Analytics**:
+  - Direct DuckDB analytical queries over 1.63M rows.
+  - Dwelling type median valuations, Bank of England rate hike vs price trends, and top counties.
+
 ## 7. Roadmap & Pending Phases
 
 ```mermaid
 flowchart LR
     P1["Phase 1\nData Acquisition & Storage\n(COMPLETED)"]
     P2["Phase 2\nFeature Engineering at Scale\n(COMPLETED)"]
-    P3["Phase 3\nScalable ML Pipeline\n(READY)"]
-    P4["Phase 4\nExplainability & Arbitrage\n(PLANNED)"]
-    P5["Phase 5\nStreamlit App & FastAPI\n(PLANNED)"]
+    P3["Phase 3\nScalable ML Pipeline\n(COMPLETED)"]
+    P4["Phase 4\nExplainability & Arbitrage\n(COMPLETED)"]
+    P5["Phase 5\nStreamlit App & FastAPI\n(COMPLETED)"]
 
     P1 --> P2 --> P3 --> P4 --> P5
     style P1 fill:#27ae60,stroke:#2ecc71,color:#fff
     style P2 fill:#27ae60,stroke:#2ecc71,color:#fff
-    style P3 fill:#f39c12,stroke:#e67e22,color:#fff
-    style P4 fill:#7f8c8d,stroke:#95a5a6,color:#fff
-    style P5 fill:#7f8c8d,stroke:#95a5a6,color:#fff
+    style P3 fill:#27ae60,stroke:#2ecc71,color:#fff
+    style P4 fill:#27ae60,stroke:#2ecc71,color:#fff
+    style P5 fill:#27ae60,stroke:#2ecc71,color:#fff
 ```
 
 ### Next Immediate Deliverable: Phase 3 — Scalable ML Pipeline

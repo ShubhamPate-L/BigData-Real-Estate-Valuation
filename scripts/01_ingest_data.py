@@ -19,6 +19,11 @@ DATASETS = {
         "extract": True,
         "extracted_file": os.path.join(RAW_DIR, "ukpostcodes.csv")
     },
+    "land_registry_2022": {
+        "url": "http://prod.publicdata.landregistry.gov.uk.s3-website-eu-west-1.amazonaws.com/pp-2022.csv",
+        "dest": os.path.join(RAW_DIR, "pp-2022.csv"),
+        "extract": False
+    },
     "land_registry_2023": {
         "url": "http://prod.publicdata.landregistry.gov.uk.s3-website-eu-west-1.amazonaws.com/pp-2023.csv",
         "dest": os.path.join(RAW_DIR, "pp-2023.csv"),
@@ -38,7 +43,7 @@ def download_file(url: str, dest_path: str):
     start_time = time.time()
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
     
-    with urllib.request.urlopen(req, timeout=30) as response, open(dest_path, "wb") as out_file:
+    with urllib.request.urlopen(req, timeout=60) as response, open(dest_path, "wb") as out_file:
         total_size = int(response.headers.get("Content-Length", 0))
         downloaded = 0
         chunk_size = 1024 * 1024  # 1 MB chunk
@@ -52,7 +57,7 @@ def download_file(url: str, dest_path: str):
             downloaded += len(chunk)
             
             # Log every 10 MB or when complete
-            if downloaded - last_logged >= 10 * 1024 * 1024 or downloaded == total_size:
+            if downloaded - last_logged >= 10 * 1024 * 1024 or (total_size > 0 and downloaded == total_size):
                 elapsed = time.time() - start_time
                 speed = (downloaded / (1024 * 1024)) / (elapsed if elapsed > 0 else 1)
                 pct = (downloaded / total_size * 100) if total_size > 0 else 0
@@ -82,9 +87,10 @@ def main():
     if pc_info["extract"] and not os.path.exists(pc_info["extracted_file"]):
         extract_zip(pc_info["dest"], RAW_DIR)
 
-    # 2. Download HM Land Registry Price Paid 2023
-    lr_info = DATASETS["land_registry_2023"]
-    download_file(lr_info["url"], lr_info["dest"])
+    # 2. Download HM Land Registry Price Paid 2022 & 2023
+    for lr_key in ["land_registry_2022", "land_registry_2023"]:
+        lr_info = DATASETS[lr_key]
+        download_file(lr_info["url"], lr_info["dest"])
 
     print("\n" + "=" * 60)
     print("[ALL DOWNLOADS COMPLETE]")

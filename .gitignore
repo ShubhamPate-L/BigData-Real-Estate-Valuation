@@ -9,6 +9,8 @@ data/properties/*
 !data/properties/.gitkeep
 data/features/*
 !data/features/.gitkeep
+!data/features/arbitrage_top50.csv
+!data/features/h3_micro_markets.parquet
 
 # Embedded Database Files
 *.duckdb
